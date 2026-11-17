@@ -10,14 +10,38 @@
 # Description: OpenWrt DIY script part 2 (After Update feeds)
 #
 
-# 修改 分区大小，默认 mod 分区大小为 112MB：0x7000000。改为 114MB：0x7200000 version < 24.10.3
-sed -i '/label = "ubi"/{n;s/reg = <0x5c0000 0x[0-9a-f]\+>/reg = <0x5c0000 0x7200000>/}' target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1.dts
+# # 修改 分区大小，默认 mod 分区大小为 112MB：0x7000000。改为 114MB：0x7200000 version < 24.10.3
+# sed -i '/label = "ubi"/{n;s/reg = <0x5c0000 0x[0-9a-f]\+>/reg = <0x5c0000 0x7200000>/}' target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1.dts
 
-# 修改 分区大小，默认 mod 分区大小为 112MB：0x7000000。改为 114MB：0x7200000  version > 24.10.2
-sed -i '/&ubi/ { n; s/reg = <0x5c0000 0x[0-9a-f]\+>;/reg = <0x5c0000 0x7200000>;/; }' target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1.dts
+# # 修改 分区大小，默认 mod 分区大小为 112MB：0x7000000。改为 114MB：0x7200000  version > 24.10.2
+# sed -i '/&ubi/ { n; s/reg = <0x5c0000 0x[0-9a-f]\+>;/reg = <0x5c0000 0x7200000>;/; }' target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1.dts
 
-echo "target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1.dts"
-cat target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1.dts 
+# echo "target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1.dts"
+# cat target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1.dts 
+
+# 给 ubootmod 变体补 NMBM 与 SPI 校准，属性逐字取自同版本 stock 变体
+# ubi reg 保持上游 0x7a40000 不动
+cat >> target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1-ubootmod.dts <<'EOF'
+
+&spi_nand {
+    spi-cal-enable;
+    spi-cal-mode = "read-data";
+    spi-cal-datalen = <7>;
+    spi-cal-data = /bits/ 8 <0x53 0x50 0x49 0x4E 0x41 0x4E 0x44>;
+    spi-cal-addrlen = <5>;
+    spi-cal-addr = /bits/ 32 <0x0 0x0 0x0 0x0 0x0>;
+
+    mediatek,nmbm;
+    mediatek,bmt-max-ratio = <1>;
+    mediatek,bmt-max-reserved-blocks = <64>;
+};
+EOF
+
+D=target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1-ubootmod.dts
+grep -q 'mediatek,nmbm' "$D" || { echo "ERROR: nmbm missing"; exit 1; }
+grep -q 'reg = <0x5c0000 0x7a40000>;' "$D" || { echo "ERROR: ubi reg unexpected"; exit 1; }
+echo "=== patched $D ==="
+cat "$D"
 
 #Modify default IP
 sed -i 's/192.168.1.1/192.168.9.1/g' package/base-files/files/bin/config_generate
